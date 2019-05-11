@@ -293,6 +293,10 @@ class Source(asynchat.async_chat):
         note("Recv(%d) on %s says %d"%(n,self.testname,len(rv)))
         return rv
 
+    def handle_read_event(self):
+        note("HRE on %s"%(self.testname))
+        asynchat.async_chat.handle_read_event(self)
+
     def get_test_names(self):
         return [ self.testname ]
 
