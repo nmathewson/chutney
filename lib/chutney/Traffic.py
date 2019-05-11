@@ -288,6 +288,11 @@ class Source(asynchat.async_chat):
         note("Send(%d) on %s says %d"%(len(data),self.testname,n))
         return n
 
+    def recv(self, n):
+        rv = asynchat.async_chat.recv(self, n)
+        note("Recv(%d) on %s says %d"%(n,self.testname,len(rv)))
+        return rv
+
     def get_test_names(self):
         return [ self.testname ]
 
@@ -312,6 +317,8 @@ class Source(asynchat.async_chat):
             self.push_output()
 
     def collect_incoming_data(self, data):
+        note("collect_incoming on %s gets %d bytes while in %d"%
+             (self.testname, len(data), self.state))
         self.inbuf += data
         if self.state == self.CONNECTING_THROUGH_PROXY:
             if len(self.inbuf) >= 8:
@@ -365,6 +372,9 @@ class EchoClient(Source):
         self.close_when_done()
 
     def collect_incoming_data(self, data):
+        note("(Outer) collect_incoming on %s gets %d bytes while in %d"%
+             (self.testname, len(data), self.state))
+
         if self.state == self.CONNECTING_THROUGH_PROXY:
             Source.collect_incoming_data(self, data)
             if self.state == self.CONNECTING_THROUGH_PROXY:
