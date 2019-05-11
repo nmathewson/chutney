@@ -34,6 +34,9 @@ import asynchat
 
 from chutney.Debug import debug_flag, debug
 
+def note(s):
+    sys.stderr.write("NOTE: %s\n"%s)
+
 def addr_to_family(addr):
     for family in [socket.AF_INET, socket.AF_INET6]:
         try:
@@ -78,12 +81,14 @@ class TestSuite(object):
         self.failures = 0
 
     def add(self, name):
+        note("Registering %s"%name)
         if name not in self.tests:
             debug("Registering %s"%name)
             self.not_done += 1
             self.tests[name] = 'not done'
 
     def success(self, name):
+        note("Success: %s"%name)
         if self.tests[name] == 'not done':
             debug("Succeeded %s"%name)
             self.tests[name] = 'success'
@@ -91,6 +96,7 @@ class TestSuite(object):
             self.successes += 1
 
     def failure(self, name):
+        note("Failure: %s"%name)
         if self.tests[name] == 'not done':
             debug("Failed %s"%name)
             self.tests[name] = 'failure'
