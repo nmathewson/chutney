@@ -385,6 +385,8 @@ class TrafficTester():
         self.pending_close.append(peer.s)
 
     def run(self):
+        start = time.time()
+        timeout_orig = self.timeout
         while not self.tests.all_done() and self.timeout > 0:
             rset = [self.listener.fd()] + list(self.peers)
             wset = [p.fd() for p in
@@ -429,6 +431,7 @@ class TrafficTester():
                         self.tests.failure()
                         self.remove(p)
 
+        end = time.time()
         for fd in self.peers:
             peer = self.peers[fd]
             debug("peer fd=%d never pending close, never read or wrote" % fd)
@@ -439,6 +442,7 @@ class TrafficTester():
         if not debug_flag:
             sys.stdout.write('\n')
             sys.stdout.flush()
+        note("Total time elapsed: %s sec (vs timeout = %s)"%(end-start, timeout_orig))
         debug("Done with run(); all_done == %s and failure_count == %s"
               %(self.tests.all_done(), self.tests.failure_count()))
         return self.tests.all_done() and self.tests.failure_count() == 0
