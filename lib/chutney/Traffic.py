@@ -283,6 +283,11 @@ class Source(asynchat.async_chat):
         self.state = self.CONNECTING
         self.connect(dest)
 
+    def send(self, data):
+        n = asynchat.async_chat.send(self, data)
+        note("Send(%d) on %s says %d"%(len(data),self.testname,n))
+        return n
+
     def get_test_names(self):
         return [ self.testname ]
 
