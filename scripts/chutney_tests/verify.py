@@ -5,7 +5,7 @@ import chutney
 def run_test(network):
     wait_time = network._dfltEnv['bootstrap_time']
     start_time = time.time()
-    end_time = start_time + wait_time
+    end_time = start_time + 120
     print("Verifying data transmission: (retrying for up to %d seconds)"
           % wait_time)
     status = False
@@ -16,7 +16,7 @@ def run_test(network):
         status = _verify_traffic(network)
         # Avoid madly spewing output if we fail immediately each time
         if not status:
-            time.sleep(2)
+            time.sleep(5)
     print("Transmission: %s" % ("Success" if status else "Failure"))
     if not status:
         print("Set CHUTNEY_DEBUG to diagnose.")
