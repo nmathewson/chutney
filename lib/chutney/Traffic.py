@@ -34,6 +34,9 @@ import asynchat
 
 from chutney.Debug import debug_flag, debug
 
+def note(s):
+    sys.stderr.write("NOTE: %s\n"%s)
+
 def addr_to_family(addr):
     for family in [socket.AF_INET, socket.AF_INET6]:
         try:
@@ -154,7 +157,7 @@ class Sink(asynchat.async_chat):
         if self.repetitions == 0 and len(self.inbuf) == 0:
             debug("successful verification")
             self.close()
-            print("Success in sink: %s"%self.tt.tests.status())
+            note("Success in sink: %s"%self.tt.tests.status())
             self.tt.success()
         # calculate the actual length of data remaining, including reps
         debug("receive remaining bytes (bytes=%d)"
@@ -169,7 +172,7 @@ class CloseSourceProducer:
         self.source = source
 
     def more(self):
-        print("Success in source: %s"%self.source.tt.tests.status())
+        note("Success in source: %s"%self.source.tt.tests.status())
         self.source.tt.success()
 
 class Source(asynchat.async_chat):
