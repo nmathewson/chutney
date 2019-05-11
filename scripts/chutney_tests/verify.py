@@ -16,7 +16,7 @@ def run_test(network):
         status = _verify_traffic(network)
         # Avoid madly spewing output if we fail immediately each time
         if not status:
-            time.sleep(5)
+            time.sleep(2)
     print("Transmission: %s" % ("Success" if status else "Failure"))
     if not status:
         print("Set CHUTNEY_DEBUG to diagnose.")
@@ -40,7 +40,7 @@ def _verify_traffic(network):
     DATALEN = network._dfltEnv['data_bytes']
     # Print a dot each time a sink verifies this much data
     DOTDATALEN = 5 * 1024 * 1024  # Octets.
-    TIMEOUT = 3                   # Seconds.
+    TIMEOUT = 10                   # Seconds.
     # Calculate the amount of random data we should use
     randomlen = _calculate_randomlen(DATALEN)
     reps = _calculate_reps(DATALEN, randomlen)

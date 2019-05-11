@@ -372,7 +372,7 @@ class TrafficTester(object):
     def __init__(self,
                  endpoint,
                  data=b"",
-                 timeout=3,
+                 timeout=10,
                  repetitions=1,
                  dot_repetitions=0,
                  chat_type="Echo"):
