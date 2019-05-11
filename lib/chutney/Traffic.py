@@ -293,6 +293,11 @@ class Source(asynchat.async_chat):
         self.tt.tests.note(self.testname, s)
 
     def handle_connect(self):
+        if not self.connected:
+            note("Nick, your suspicion was correct.")
+            self.connected = True
+            self.connecting = False
+        
         if self.proxy:
             self.state = self.CONNECTING_THROUGH_PROXY
             self.note("connected, sending socks handshake")
