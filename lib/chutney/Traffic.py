@@ -32,6 +32,9 @@ import os
 
 from chutney.Debug import debug_flag, debug
 
+def note(s):
+    sys.stderr.write("NOTE: %s\n"%s)
+
 def socks_cmd(addr_port):
     """
     Return a SOCKS command for connecting to addr_port.
@@ -144,7 +147,9 @@ class Sink(Peer):
                -1 on failed verification
                >0 if more data needs to be read
         """
-        return self.verify(self.tt.data)
+        rv = self.verify(self.tt.data)
+        note("Sink on_readable returning %s"%rv)
+        return rv
 
     def verify(self, data):
         # shortcut read when we don't ever expect any data
@@ -179,7 +184,9 @@ class Sink(Peer):
         # calculate the actual length of data remaining, including reps
         debug("receive remaining bytes (bytes=%d)"
               % (self.repetitions*len(data) - len(self.inbuf)))
-        return self.repetitions*len(data) - len(self.inbuf)
+        n = self.repetitions*len(data) - len(self.inbuf)
+        note("sink has %d bytes remaining"%n)
+        return n
 
 
 class Source(Peer):
@@ -228,6 +235,7 @@ class Source(Peer):
             debug("-- connecting through proxy, got %d bytes"%len(inp))
             if len(inp) == 0:
                 debug("EOF on fd %d"%self.fd())
+                note("Source.on_readable returning -1 -- EOF.")
                 return -1
             self.inbuf += inp
             if len(self.inbuf) == 8:
@@ -238,19 +246,25 @@ class Source(Peer):
                     debug("successfully connected (fd=%d)" % self.fd())
                     # if we have no reps or no data, skip sending actual data
                     if self.want_to_write():
+                        note("Source.on_readable returning 1 -- want to write.")
                         return 1    # Keep us around for writing.
                     else:
                         # shortcut write when we don't ever expect any data
                         debug("no connection required - no data")
+                        note("Source.on_readable returning 0 -- no data.")
                         return 0
                 else:
+                    note("Source.on_readable returning -1 -- bad handshake")
                     debug("proxy handshake failed (0x%x)! (fd=%d)" %
                           (ord(self.inbuf[1]), self.fd()))
                     self.state = self.NOT_CONNECTED
                     return -1
             assert(8 - len(self.inbuf) > 0)
             return 8 - len(self.inbuf)
-        return self.want_to_write()  # Keep us around for writing if needed
+
+        rv = self.want_to_write()  # Keep us around for writing if needed
+        note("Source.on_readable returning %s from want_to_write()"%rv)
+        return rv
 
     def want_to_write(self):
         if self.state == self.CONNECTING:
@@ -363,6 +377,7 @@ class TrafficTester():
     def add(self, peer):
         self.peers[peer.fd()] = peer
         if peer.is_source():
+            note("Adding test %s"%peer)
             self.tests.add()
 
     def remove(self, peer):
@@ -392,6 +407,7 @@ class TrafficTester():
                     # debug("need %d more octets from fd %d" % (n, fd))
                     pass
                 elif n == 0:  # Success.
+                    note("peer %s succeeded"%p)
                     self.tests.success()
                     self.remove(p)
                 else:       # Failure.
