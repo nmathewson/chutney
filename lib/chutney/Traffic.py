@@ -31,6 +31,7 @@ import os
 
 import asyncore
 import asynchat
+import select
 
 from chutney.Debug import debug_flag, debug
 
@@ -38,6 +39,13 @@ def note(s):
     sys.stderr.write("NOTE: %s\n"%s)
 def warn(s):
     sys.stderr.write("WARN: %s\n"%s)
+
+select_orig = select.select
+def select_replacer(r,w,x,t=None):
+    r2,w2,x2 = select_orig(r,w,x,t)
+    note("Select%s->%s"%((r,w,x),(r2,w2,x2)))
+    return (r2, w2, x2)
+#select.select = select_replacer
 
 UNIQ_CTR = 0
 def uniq(s):
@@ -194,8 +202,10 @@ class DataChecker(object):
         self.pending = b""
         self.succeeded = False
         self.failed = False
+        self.n_received = 0
 
     def consume(self, inp):
+        self.n_received += len(inp)
         if self.failed:
             return
         if self.succeeded and len(inp):
@@ -238,7 +248,7 @@ class Sink(asynchat.async_chat):
         debug("successfully received (bytes=%d)" % len(inp))
         self.data_checker.consume(inp)
         if self.data_checker.succeeded:
-            debug("successful verification")
+            note("successful verification with %d bytes", self.data_checker.n_received)
             self.close()
             self.tt.success(self.testname)
         elif self.data_checker.failed:
@@ -294,8 +304,12 @@ class Source(asynchat.async_chat):
         return rv
 
     def handle_read_event(self):
-        note("HRE on %s"%(self.testname))
+        #note("HRE on %s"%(self.testname))
         asynchat.async_chat.handle_read_event(self)
+
+    def handle_write_event(self):
+        #note("HWE on %s"%(self.testname))
+        asynchat.async_chat.handle_write_event(self)
 
     def get_test_names(self):
         return [ self.testname ]
@@ -307,11 +321,6 @@ class Source(asynchat.async_chat):
         self.tt.tests.note(self.testname, s)
 
     def handle_connect(self):
-        if not self.connected:
-            note("Nick, your suspicion was correct.")
-            self.connected = True
-            self.connecting = False
-        
         if self.proxy:
             self.state = self.CONNECTING_THROUGH_PROXY
             self.note("connected, sending socks handshake")
@@ -343,7 +352,7 @@ class Source(asynchat.async_chat):
         self.push_with_producer(self.data_source)
 
         self.push_with_producer(CloseSourceProducer(self))
-        self.close_when_done()
+        #self.close_when_done()
 
     def fileno(self):
         return self.socket.fileno()
@@ -353,18 +362,46 @@ class EchoServer(asynchat.async_chat):
         asynchat.async_chat.__init__(self, sock, map=tt.socket_map)
         self.set_terminator(None)
         self.tt = tt
+        self.n_sent = 0
+        self.am_closing = False
 
     def collect_incoming_data(self, data):
         self.push(data)
 
+    def handle_read_event(self):
+        #note("HRE on ES")
+        asynchat.async_chat.handle_read_event(self)
+
+    def handle_write_event(self):
+        #note("HWE on ES")
+        asynchat.async_chat.handle_write_event(self)
+
+    def readable(self):
+        return not self.am_closing
+
+    def send(self, data):
+        n = asynchat.async_chat.send(self, data)
+        note("Send(%d) on ES says %d"%(len(data),n))
+        self.n_sent += n
+        return n
+
+    def recv(self, n):
+        rv = asynchat.async_chat.recv(self, n)
+        note("Recv(%d) on ES says %d"%(n,len(rv)))
+        return rv
+
     def handle_close(self):
-        self.close_when_done()
+        note("HC on ES with %d sent"%self.n_sent)
+        self.am_closing = True
+        if not self.writable():
+            self.close()
 
 class EchoClient(Source):
     def __init__(self, tt, server, proxy=None):
         Source.__init__(self, tt, server, proxy)
         self.data_checker = DataChecker(tt.data_source.copy())
         self.testname_check = uniq("check")
+        self.am_closing = False
 
     def enote(self, s):
         self.tt.tests.note(self.testname_check, s)
@@ -372,8 +409,14 @@ class EchoClient(Source):
     def get_test_names(self):
         return [ self.testname, self.testname_check ]
 
+    def readable(self):
+        return not self.am_closing
+
     def handle_close(self):
-        self.close_when_done()
+        self.am_closing = True
+        note("Handle close on EC")
+        #self.close_when_done()
+        #self.close()
 
     def collect_incoming_data(self, data):
         note("(Outer) collect_incoming on %s gets %d bytes while in %d"%
@@ -390,7 +433,7 @@ class EchoClient(Source):
         self.enote("consumed some")
 
         if self.data_checker.succeeded:
-            self.enote("successful verification")
+            self.enote("successful verification with %d bytes"% self.data_checker.n_received)
             debug("successful verification")
             self.close()
             self.tt.success(self.testname_check)
@@ -466,7 +509,7 @@ class TrafficTester(object):
         while now < end and not self.tests.all_done():
             # run only one iteration at a time, with a nice short timeout, so we
             # can actually detect completion and timeouts.
-            asyncore.loop(0.2, False, self.socket_map, 1)
+            asyncore.loop(1, False, self.socket_map, 1)
             now = time.time()
             if now > dump_at:
                 debug("Test status: %s"%self.tests.status())
@@ -479,7 +522,7 @@ class TrafficTester(object):
               %(self.tests.all_done(), self.tests.failure_count()))
 
         note("Status:\n%s"%self.tests.teststatus)
-        
+
         self.listener.close()
 
         return self.tests.all_done() and self.tests.failure_count() == 0
