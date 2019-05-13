@@ -146,7 +146,7 @@ class Listener(asyncore.dispatcher):
         self.create_socket(addr_to_family(endpoint[0]), socket.SOCK_STREAM)
         self.set_reuse_addr()
         self.bind(endpoint)
-        self.listen(0)
+        self.listen(128)
         self.tt = tt
 
     def writable(self):
@@ -314,6 +314,7 @@ class Source(asynchat.async_chat):
                 else:
                     debug("proxy handshake failed (0x%x)! (fd=%d)" %
                           (byte_to_int(self.inbuf[1]), self.fileno()))
+                    self.note("proxy handhsake failed")
                     self.state = self.NOT_CONNECTED
                     self.close()
 
